@@ -1,0 +1,2 @@
+conda activate vggt_omega
+python demo_gradio.py --checkpoint checkpoints/VGGT-Omega-1B-512/model.pt --image-resolution 512 --server-name 0.0.0.0

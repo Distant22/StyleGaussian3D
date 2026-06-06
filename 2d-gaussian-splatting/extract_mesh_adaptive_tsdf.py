@@ -259,7 +259,7 @@ def marching_tetrahedra_with_binary_search(
     cells_file_path = os.path.join(render_path, "cells.pt")
     if os.path.exists(cells_file_path):
         print("load existing cells")
-        cells = torch.load(cells_file_path)
+        cells = torch.load(cells_file_path, weights_only=False)
     else:
         # create cell and save cells
         print("create cells and save")

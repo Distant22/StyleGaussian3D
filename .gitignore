@@ -153,3 +153,82 @@ dmypy.json
 # Pyre type checker
 .pyre/
 learnableearthparser/fast_sampler/_sampler.c
+
+# =====================================================================
+# StyleGaussian 3D — large files / heavy artifacts
+# Keep the repo lightweight: weights, outputs and videos are NOT versioned.
+# Re-download model weights with `python download_checkpoints.py`.
+# =====================================================================
+
+# --- Model weights & checkpoints (multi-GB) ---
+*.safetensors
+*.onnx
+*.ckpt
+*.npz
+vggt/checkpoints/
+vggt-omega/checkpoints/
+Depth-Anything-3/da3_streaming/weights/
+scripts/skyseg.onnx
+
+# --- Reconstruction outputs (meshes, point clouds, predictions) ---
+image_output/
+depth_anything_3_output/
+da3_output/
+vggt_output/
+vggt-omega/demo_outputs/
+
+# --- Videos & raw captures ---
+video/
+*.mov
+*.mp4
+*.avi
+*.mkv
+
+# --- Build artifacts / archives ---
+*.zip
+report.zip
+report/*.aux
+report/*.bbl
+report/*.blg
+report/*.out
+report/*.synctex.gz
+
+# --- CMake FetchContent build downloads (e.g. pybind11-src) ---
+**/_deps/
+
+# --- PRIVATE infra / local scratch notes & logs (do NOT push publicly) ---
+# file_copy.txt & send_files.txt contain SSH host / IP / username / scp commands.
+# full_vram_log.txt is a ~2.9k-line raw VRAM log; the rest are local command notes.
+file_copy.txt
+send_files.txt
+full_vram_log.txt
+extract_frame.txt
+gradio.txt
+run_train.txt
+train_chunk.txt
+matcha_report.txt
+improvements.txt
+
+# --- Heavy third-party front-end repos (embedded git repos) ---
+# Excluded to keep the repo lightweight & avoid broken gitlinks.
+# Clone them separately (see README) or remove their inner .git to vendor them in.
+vggt/
+
+# --- vggt-omega & Depth-Anything-3: vendor in SOURCE only ---
+# The folders are tracked, but heavy artifacts are not. Weights, demo outputs
+# and *.pt/*.pth are skipped via each folder's own .gitignore plus the global
+# rules above (*.npz, *.mp4, *.safetensors, *.onnx, *.ckpt, *.zip). Also drop
+# experiment outputs, bundled datasets and the third-party SALAD repo so only
+# the corrected source code is versioned.
+Depth-Anything-3/da3_streaming/exps/
+Depth-Anything-3/da3_streaming/all_combined/
+Depth-Anything-3/da3_streaming/loop_utils/salad/
+Depth-Anything-3/assets/images/*.gif
+
+# report
+zip_report.sh
+logs/
+report/
+image_input/
+run_and_log.sh
+compile_report.sh

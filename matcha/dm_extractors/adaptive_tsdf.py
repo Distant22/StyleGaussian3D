@@ -108,7 +108,7 @@ def get_interpolated_value_from_pixel_coordinates(
     )  # (1, C, N, 1)
     
     # Reshape to (N, C)
-    interpolated_value = interpolated_value.reshape(-1, n_points).permute(1, 0)
+    interpolated_value = interpolated_value.reshape(value_img.shape[2], n_points).permute(1, 0)
     return interpolated_value
     
 

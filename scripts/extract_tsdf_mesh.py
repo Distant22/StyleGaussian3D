@@ -37,7 +37,7 @@ if __name__ == '__main__':
     
     # Define command
     tsdf_command = " ".join([
-        "python", "2d-gaussian-splatting/render_multires.py",
+        sys.executable, "2d-gaussian-splatting/render_multires.py",
         "--source_path", args.mast3r_scene,
         "--model_path", args.model_path,
         "--output_dir", args.output_path,

@@ -788,11 +788,11 @@ class ParallelAligner(torch.nn.Module):
                 curv_loss = curv_loss.detach().item()
             
             if use_matching_loss:
-                reprojection_errors, fov_mask = matcher.compute_reprojection_errors(depths=_deformed_depths)
-                reprojection_errors = reprojection_errors * fov_mask * matcher.reference_matches  # (n_charts, n_charts, h, w)
-                if use_confidence_in_matching_loss:
-                    reprojection_errors = reprojection_errors * self.confidence.detach()[None]  # (n_charts, n_charts, h, w)
-                matching_loss = matching_loss_weight * reprojection_errors.mean()
+                matching_loss = matcher.compute_matching_loss(
+                    depths=_deformed_depths,
+                    confidence=self.confidence.detach() if use_confidence_in_matching_loss else None
+                )
+                matching_loss = matching_loss_weight * matching_loss
                 loss += matching_loss
                 matching_loss = matching_loss.detach().item()
                 

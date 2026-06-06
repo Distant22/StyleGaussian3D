@@ -72,7 +72,7 @@ if __name__ == '__main__':
     tmp_idx = args.image_idx if args.image_idx is not None else []
     command = " ".join([
         # "conda",  "run", "-n", args.env, 
-        "python", "mast3r/run_mast3r.py",
+        sys.executable, "mast3r/run_mast3r.py",
         "--scene_path", args.source_path,
         "--output_dir", args.output_path,
         "--weights_path", config['weights_path'],

@@ -62,6 +62,7 @@ pybind11_add_module(tetranerf_cpp_extension
 target_link_libraries(tetranerf_cpp_extension PRIVATE ${CUDA_LIBRARIES} ${TORCH_LIBRARIES})
 target_link_libraries(tetranerf_cpp_extension PRIVATE CGAL::CGAL)
 target_compile_features(tetranerf_cpp_extension PRIVATE cxx_std_17)
+target_compile_definitions(tetranerf_cpp_extension PRIVATE _GLIBCXX_USE_CXX11_ABI=1)
 set_target_properties(tetranerf_cpp_extension
     PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"

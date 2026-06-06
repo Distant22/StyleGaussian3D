@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MAtCha Viewer</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; width: 100vw; height: 100vh; cursor: grab; }
+        canvas:active { cursor: grabbing; }
+        #loading { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            color: white; font-family: sans-serif; font-size: 24px; pointer-events: none; 
+            text-align: center;
+        }
+        #hud {
+            position: absolute; bottom: 12px; left: 12px;
+            color: rgba(255,255,255,0.85); font-family: monospace; font-size: 12px;
+            background: rgba(0,0,0,0.45); padding: 6px 10px; border-radius: 6px;
+            pointer-events: none; line-height: 1.5;
+        }
+        #hud kbd {
+            background: rgba(255,255,255,0.15); padding: 1px 5px; border-radius: 3px;
+            border: 1px solid rgba(255,255,255,0.25); font-family: monospace;
+        }
+    </style>
+    <!-- Import Three.js -->
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="loading">Loading Mesh...<br><span style="font-size: 16px;">(This may take a minute for massive files)</span></div>
+    <div id="hud">
+        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk &nbsp; <kbd>Q</kbd>/<kbd>E</kbd> down/up &nbsp; <kbd>Shift</kbd> faster &nbsp; drag to look
+    </div>
+    <script type="module">
+        import * as THREE from 'three';
+        import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
+
+        // Variables injected by Python
+        const PLY_URL = "INJECT_PLY_URL";
+        const CAMERAS = INJECT_CAMERAS_JSON;
+        let rollDeg = INJECT_INITIAL_ROLL_DEG;
+        let pitchDeg = INJECT_INITIAL_PITCH_DEG;
+        let yawDeg = INJECT_INITIAL_YAW_DEG;
+        const INITIAL_CAMERA_INDEX = INJECT_INITIAL_CAMERA_INDEX;
+        const MOVE_SPEED = INJECT_MOVE_SPEED; // world units per second (walk speed)
+        const FAST_MULT = 3.0;
+        let currentCameraIndex = INITIAL_CAMERA_INDEX;
+
+        // Basic Setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+        
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(0, 1, 0);
+        scene.add(dirLight);
+
+        // First Person Controls state
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        // yaw/pitch are deltas applied on top of baseQuaternion (the camera's pose after jumpToCamera).
+        // This keeps the roll correction baked into baseQuaternion so it isn't lost when dragging.
+        let yaw = 0;
+        let pitch = 0;
+        const baseQuaternion = new THREE.Quaternion();
+
+        // Mouse Events
+        renderer.domElement.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            previousMousePosition = { x: e.offsetX, y: e.offsetY };
+        });
+
+        renderer.domElement.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const deltaMove = {
+                x: e.offsetX - previousMousePosition.x,
+                y: e.offsetY - previousMousePosition.y
+            };
+            
+            // Sensitivity
+            yaw += deltaMove.x * 0.005;
+            pitch += deltaMove.y * 0.005;
+            
+            // Clamp pitch to avoid flipping
+            pitch = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, pitch));
+            
+            updateCameraRotation();
+            
+            previousMousePosition = { x: e.offsetX, y: e.offsetY };
+        });
+
+        renderer.domElement.addEventListener('mouseup', () => { isDragging = false; });
+        renderer.domElement.addEventListener('mouseleave', () => { isDragging = false; });
+
+        // Keyboard state for WASD/QE fly movement
+        const keysPressed = Object.create(null);
+        const MOVE_KEYS = new Set(['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE','ShiftLeft','ShiftRight']);
+
+        // Make sure the iframe's body can receive keyboard focus, and grab focus on any click.
+        document.body.tabIndex = 0;
+        renderer.domElement.addEventListener('mousedown', () => { window.focus(); document.body.focus(); });
+
+        window.addEventListener('keydown', (e) => {
+            if (MOVE_KEYS.has(e.code)) {
+                keysPressed[e.code] = true;
+                e.preventDefault();
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            if (MOVE_KEYS.has(e.code)) {
+                keysPressed[e.code] = false;
+                e.preventDefault();
+            }
+        });
+        // Clear stuck keys if the window loses focus (avoids drift after Alt+Tab).
+        window.addEventListener('blur', () => { for (const k in keysPressed) keysPressed[k] = false; });
+
+        const _moveVec = new THREE.Vector3();
+        function updateMovement(dt) {
+            _moveVec.set(0, 0, 0);
+            if (keysPressed['KeyW']) _moveVec.z -= 1; // forward (camera looks -Z)
+            if (keysPressed['KeyS']) _moveVec.z += 1; // backward
+            if (keysPressed['KeyA']) _moveVec.x -= 1; // strafe left
+            if (keysPressed['KeyD']) _moveVec.x += 1; // strafe right
+            if (keysPressed['KeyQ']) _moveVec.y -= 1; // down
+            if (keysPressed['KeyE']) _moveVec.y += 1; // up
+            if (_moveVec.lengthSq() === 0) return;
+            const boost = (keysPressed['ShiftLeft'] || keysPressed['ShiftRight']) ? FAST_MULT : 1;
+            _moveVec.normalize().multiplyScalar(MOVE_SPEED * boost * dt);
+            _moveVec.applyQuaternion(camera.quaternion); // local -> world
+            camera.position.add(_moveVec);
+        }
+
+        function updateCameraRotation() {
+            // Apply yaw/pitch as a local rotation delta on top of the base camera pose.
+            const delta = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+            camera.quaternion.copy(baseQuaternion).multiply(delta);
+        }
+
+        // Load PLY
+        const loader = new PLYLoader();
+        loader.load(PLY_URL, function (geometry) {
+            geometry.computeVertexNormals();
+            // If the PLY has vertex colors, use them
+            const material = new THREE.MeshBasicMaterial({ 
+                vertexColors: geometry.hasAttribute('color'),
+                side: THREE.DoubleSide
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            // Flip mesh appropriately if needed, but usually we just handle it in the camera matrix
+            scene.add(mesh);
+            
+            document.getElementById('loading').style.display = 'none';
+            
+            // Jump to the initial camera by default
+            if(CAMERAS.length > 0) {
+                window.jumpToCamera(INITIAL_CAMERA_INDEX);
+            }
+        }, function (xhr) {
+            document.getElementById('loading').innerHTML = `Loading Mesh...<br><span style="font-size: 16px;">${Math.round(xhr.loaded / xhr.total * 100)}%</span>`;
+        }, function (error) {
+            document.getElementById('loading').innerText = "Error loading mesh!";
+            console.error(error);
+        });
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Animation Loop
+        const _clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = Math.min(_clock.getDelta(), 0.1); // clamp dt to avoid huge jumps after tab-out
+            updateMovement(dt);
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // API to jump to camera
+        window.jumpToCamera = function(index) {
+            if(index < 0 || index >= CAMERAS.length) return;
+            currentCameraIndex = index;
+            const cam = CAMERAS[index];
+            const c2w = cam.c2w; // 4x4 array
+            
+            // c2w is a row-major 4x4 matrix from Python (MAtCha/OpenCV convention)
+            // OpenCV: Z is forward, Y is down, X is right.
+            // ThreeJS: Z is backward, Y is up, X is right.
+            const m = new THREE.Matrix4();
+            m.set(
+                c2w[0][0], c2w[0][1], c2w[0][2], c2w[0][3],
+                c2w[1][0], c2w[1][1], c2w[1][2], c2w[1][3],
+                c2w[2][0], c2w[2][1], c2w[2][2], c2w[2][3],
+                c2w[3][0], c2w[3][1], c2w[3][2], c2w[3][3]
+            );
+            
+            // We can decompose the matrix to set position and rotation
+            const position = new THREE.Vector3();
+            const quaternion = new THREE.Quaternion();
+            const scale = new THREE.Vector3();
+            m.decompose(position, quaternion, scale);
+            
+            camera.position.copy(position);
+            
+            // OpenCV to ThreeJS coordinate conversion for rotation
+            // OpenCV looks down +Z. ThreeJS looks down -Z.
+            // OpenCV Y is down. ThreeJS Y is up.
+            // We need to rotate 180 degrees around X axis to convert the camera's local coordinate system.
+            const cvToThree = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI);
+            quaternion.multiply(cvToThree);
+
+            // Apply user orientation corrections in the camera's LOCAL frame after cvToThree:
+            //   pitch  -> rotation around local X (right)   : look up/down
+            //   yaw    -> rotation around local Y (up)      : pan left/right while staying upright
+            //   roll   -> rotation around local Z (back)    : spin image around view axis
+            // SfM world frames from Mast3r/DA3 are not gravity-aligned so we let the user dial these in.
+            const DEG = Math.PI / 180;
+            if (pitchDeg !== 0) {
+                quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitchDeg * DEG));
+            }
+            if (yawDeg !== 0) {
+                quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawDeg * DEG));
+            }
+            if (rollDeg !== 0) {
+                quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -rollDeg * DEG));
+            }
+
+            camera.quaternion.copy(quaternion);
+
+            // Store this as the base pose; drag deltas start fresh from here so we never lose the roll correction.
+            baseQuaternion.copy(quaternion);
+            yaw = 0;
+            pitch = 0;
+
+            // Set FOV
+            if (cam.fov) {
+                camera.fov = cam.fov;
+                camera.updateProjectionMatrix();
+            }
+        };
+
+        // Listen for messages from Gradio parent
+        window.addEventListener('message', (event) => {
+            if (!event.data) return;
+            if (event.data.type === 'jumpToCamera') {
+                window.jumpToCamera(event.data.index);
+            } else if (event.data.type === 'setRoll') {
+                rollDeg = Number(event.data.deg) || 0;
+                window.jumpToCamera(currentCameraIndex);
+            } else if (event.data.type === 'setPitch') {
+                pitchDeg = Number(event.data.deg) || 0;
+                window.jumpToCamera(currentCameraIndex);
+            } else if (event.data.type === 'setYaw') {
+                yawDeg = Number(event.data.deg) || 0;
+                window.jumpToCamera(currentCameraIndex);
+            } else if (event.data.type === 'adjustRoll') {
+                rollDeg = (rollDeg + Number(event.data.delta)) % 360;
+                window.jumpToCamera(currentCameraIndex);
+            }
+        });
+    </script>
+</body>
+</html>

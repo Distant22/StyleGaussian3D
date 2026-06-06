@@ -36,6 +36,8 @@ if __name__ == '__main__':
     parser.add_argument('--depthanythingv2_checkpoint_dir', type=str, default='./Depth-Anything-V2/checkpoints/')
     parser.add_argument('--depthanything_encoder', type=str, default='vitl')
     
+
+    
     # Free Gaussians config
     parser.add_argument('--free_gaussians_config', type=str, default=None, 
         help='Config for Free Gaussians refinement. '\
@@ -51,6 +53,12 @@ if __name__ == '__main__':
         help='Downsample ratio for tetrahedralization. We recommend starting with 0.5 and then decreasing to 0.25 '\
         'if the mesh is too dense, or increasing to 1.0 if the mesh is too sparse.'
     )
+    
+    # DA3 Options
+    parser.add_argument('--use_da3', action='store_true', help='Use DA3 global poses instead of MASt3R SfM.')
+    parser.add_argument('--da3_dir', type=str, default=None, help='Path to pre-computed DA3 directory.')
+
+    parser.add_argument('--conf_coef', type=float, default=0.0, help='Confidence threshold coefficient to mask noisy DA3 depths.')
     
     # Run specific step
     parser.add_argument('--sfm_only', action='store_true', help='Only run the SfM step')
@@ -90,7 +98,7 @@ if __name__ == '__main__':
     
     # Defining commands
     sfm_command = " ".join([
-        "python", "scripts/run_sfm.py",
+        sys.executable, "scripts/run_sfm.py",
         "--source_path", args.source_path,
         "--output_path", mast3r_scene_path,
         "--config", args.sfm_config,
@@ -101,7 +109,7 @@ if __name__ == '__main__':
     ])
     
     align_charts_command = " ".join([
-        "python", "scripts/align_charts.py",
+        sys.executable, "scripts/align_charts.py",
         "--source_path", mast3r_scene_path,
         "--mast3r_scene", mast3r_scene_path,
         "--output_path", aligned_charts_path,
@@ -112,7 +120,7 @@ if __name__ == '__main__':
     ])
     
     refine_free_gaussians_command = " ".join([
-        "python", "scripts/refine_free_gaussians.py",
+        sys.executable, "scripts/refine_free_gaussians.py",
         "--mast3r_scene", mast3r_scene_path,
         "--output_path", free_gaussians_path,
         "--config", args.free_gaussians_config,
@@ -121,7 +129,7 @@ if __name__ == '__main__':
     ])
     
     tsdf_command = " ".join([
-        "python", "scripts/extract_tsdf_mesh.py",
+        sys.executable, "scripts/extract_tsdf_mesh.py",
         "--mast3r_scene", mast3r_scene_path,
         "--model_path", free_gaussians_path,
         "--output_path", tsdf_meshes_path,
@@ -129,7 +137,7 @@ if __name__ == '__main__':
     ])
     
     tetra_command = " ".join([
-        "python", "scripts/extract_tetra_mesh.py",
+        sys.executable, "scripts/extract_tetra_mesh.py",
         "--mast3r_scene", mast3r_scene_path,
         "--model_path", free_gaussians_path,
         "--output_path", tetra_meshes_path,
@@ -140,16 +148,44 @@ if __name__ == '__main__':
     ])
     
     # Running commands
-    run_all = (
-        (not args.sfm_only) 
-        and (not args.alignment_only) 
-        and (not args.refinement_only) 
-        and (not args.mesh_only)
-    )    
-    if args.sfm_only or run_all:
-        os.system(sfm_command)
-    if args.alignment_only or run_all:
-        os.system(align_charts_command)
+    run_all = not any([args.sfm_only, args.alignment_only, args.refinement_only, args.mesh_only])
+    
+    if args.use_da3 or args.da3_dir is not None:
+        if args.sfm_only or args.alignment_only or run_all:
+            if args.da3_dir is None:
+                print("[INFO] --use_da3 is set but --da3_dir is not provided. Running DA3 automatically...")
+                args.da3_dir = os.path.abspath(os.path.join(args.output_path, 'da3_output'))
+                da3_run_cmd = " ".join([
+                    "conda", "run", "-n", "depth_anything_v3",
+                    "python", "da3_streaming.py",
+                    "--image_dir", os.path.abspath(args.source_path),
+                    "--config", "./configs/base_config.yaml",
+                    "--output_dir", args.da3_dir
+                ])
+                print(f"[INFO] Running DA3 Command: {da3_run_cmd}")
+                da3_run_status = os.system(f"cd Depth-Anything-3/da3_streaming && {da3_run_cmd}")
+                if da3_run_status != 0:
+                    print("[ERROR] DA3 execution failed!")
+                    sys.exit(1)
+            
+            da3_command = " ".join([
+                sys.executable, "scripts/da3_to_matcha.py",
+                "--source_path", args.source_path,
+                "--da3_dir", args.da3_dir,
+                "--output_path", mast3r_scene_path,
+                "--image_idx" if args.image_idx is not None else "", " ".join([str(i) for i in args.image_idx]) if args.image_idx is not None else "",
+                "--conf_coef", str(args.conf_coef),
+            ])
+            print(f"[INFO] Running command: {da3_command}")
+            os.system(da3_command)
+    else:
+        if args.sfm_only or run_all:
+            print(f"[INFO] Running command: {sfm_command}")
+            os.system(sfm_command)
+            
+        if args.alignment_only or run_all:
+            print(f"[INFO] Running command: {align_charts_command}")
+            os.system(align_charts_command)
     if args.refinement_only or run_all:
         os.system(refine_free_gaussians_command)
     if args.mesh_only or run_all:

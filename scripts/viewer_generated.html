@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MAtCha Viewer</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; width: 100vw; height: 100vh; cursor: grab; }
+        canvas:active { cursor: grabbing; }
+        #loading { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            color: white; font-family: sans-serif; font-size: 24px; pointer-events: none; 
+            text-align: center;
+        }
+    </style>
+    <!-- Import Three.js -->
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="loading">Loading Mesh...<br><span style="font-size: 16px;">(This may take a minute for massive files)</span></div>
+    <script type="module">
+        import * as THREE from 'three';
+        import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
+
+        // Variables injected by Python
+        const PLY_URL = "/file=/workspace/Bill/MAtCha/image_output/csie_pingpong_mast3r_altered/merged_tetra_mesh.ply";
+        const CAMERAS = [{"c2w": [[-0.6629400253295898, -0.685675859451294, 0.29718175530433655, -0.6983596682548523], [-0.1967635154724121, 0.5427586436271667, 0.8156434297561646, -1.612061619758606], [-0.7217051982879639, 0.4827546179294586, -0.49613767862319946, 0.3046969473361969], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.6647540926933289, -0.6931306719779968, 0.2745380997657776, -0.5585413575172424], [-0.18956387042999268, 0.5122466087341309, 0.8364688754081726, -1.6820697784423828], [-0.7221140265464783, 0.5044722557067871, -0.47303271293640137, 0.20811709761619568], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.6915327310562134, -0.6770177483558655, 0.24812643229961395, -0.3378036618232727], [-0.1779901385307312, 0.49273204803466797, 0.8511945605278015, -1.7614601850509644], [-0.6994727849960327, 0.54503333568573, -0.4624006152153015, -0.01815120130777359], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.7008877992630005, -0.6920491456985474, 0.16752350330352783, -0.07737121731042862], [-0.11975720524787903, 0.3456217646598816, 0.9300516843795776, -1.858877182006836], [-0.7023568749427795, 0.6329056620597839, -0.326214998960495, -0.2824678421020508], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.738924503326416, -0.6705360412597656, 0.05701443552970886, 0.21211540699005127], [-0.08300405740737915, 0.17387795448303223, 0.9808912873268127, -1.9980424642562866], [-0.6683347821235657, 0.7206602096557617, -0.18484367430210114, -0.5600088834762573], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.8215444087982178, -0.5515077114105225, -0.1382194608449936, 0.5079195499420166], [-0.04694117605686188, -0.1781589835882187, 0.9825406074523926, -2.1006953716278076], [-0.567423939704895, 0.8148969411849976, 0.11992283910512924, -0.8881720900535583], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.8624822497367859, -0.43648648262023926, -0.2530369162559509, 0.766196072101593], [-0.05354321748018265, -0.4205942153930664, 0.9051450490951538, -1.9961925745010376], [-0.5022527575492859, 0.7956204414367676, 0.3394255042076111, -1.254032850265503], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.8957601189613342, -0.2582889795303345, -0.3597832918167114, 0.8915563821792603], [-0.12517215311527252, -0.6328745484352112, 0.7637108564376831, -1.7145917415618896], [-0.4256475567817688, 0.7302826046943665, 0.5349627733230591, -1.628028154373169], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.940647304058075, -0.07436239719390869, -0.3285706341266632, 0.8731238842010498], [-0.136470764875412, -0.8086578249931335, 0.5717130899429321, -1.240293025970459], [-0.3089351952075958, 0.5836143493652344, 0.7511313557624817, -1.969389796257019], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.933975338935852, 0.15369930863380432, -0.31929999589920044, 0.7877365946769714], [-0.25735145807266235, -0.9149535298347473, 0.3098233938217163, -0.6969906091690063], [-0.2450709342956543, 0.372728168964386, 0.8950425982475281, -2.241722822189331], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.8905404806137085, 0.3423125743865967, -0.29599955677986145, 0.5636519193649292], [-0.37270861864089966, -0.926398754119873, 0.04713882505893707, -0.22862209379673004], [-0.2585155963897705, 0.15359854698181152, 0.9536922574043274, -2.279402732849121], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.8635422587394714, 0.48817911744117737, -0.11884045600891113, 0.22856396436691284], [-0.4694060683250427, -0.8676692843437195, -0.15852972865104675, 0.16819393634796143], [-0.1809234768152237, -0.08073580265045166, 0.9800047874450684, -2.1114137172698975], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.8263638615608215, 0.5587462186813354, -0.057557422667741776, -0.1415247619152069], [-0.5371343493461609, -0.8155556321144104, -0.2117437869310379, 0.45282745361328125], [-0.165574312210083, -0.14385566115379333, 0.975753128528595, -1.835187315940857], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.8172006607055664, 0.5742356777191162, -0.027039580047130585, -0.5022532343864441], [-0.5474519729614258, -0.7909214496612549, -0.2702271640300751, 0.7122988104820251], [-0.17691099643707275, -0.20601218938827515, 0.9626726508140564, -1.5250864028930664], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.7454652190208435, 0.6546807289123535, 0.11759042739868164, -0.9097571969032288], [-0.6360597610473633, -0.6490383148193359, -0.4152766466140747, 1.0235494375228882], [-0.19590497016906738, -0.38469892740249634, 0.9023036956787109, -1.2096688747406006], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.6037759184837341, 0.6295982003211975, 0.4870147407054901, -1.2704333066940308], [-0.7431166172027588, -0.22429056465625763, -0.6299686431884766, 1.2138067483901978], [-0.28730642795562744, -0.7431144118309021, 0.6044668555259705, -0.8419693112373352], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.5134775042533875, 0.513870358467102, 0.6856621503829956, -1.5817646980285645], [-0.7453100085258484, 0.12894564867019653, -0.6535434722900391, 1.3067162036895752], [-0.4245181977748871, -0.8478301763534546, 0.3180859088897705, -0.4951450824737549], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.4524553120136261, 0.39137503504753113, 0.7998949885368347, -1.8394098281860352], [-0.691415548324585, 0.4129970669746399, -0.59232497215271, 1.289118766784668], [-0.5627160668373108, -0.8227735757827759, 0.08472950756549835, -0.13064658641815186], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.3753413259983063, 0.13632822036743164, 0.915767252445221, -2.0419280529022217], [-0.660796582698822, 0.6541460752487183, -0.36708396673202515, 1.0936630964279175], [-0.6497066020965576, -0.7445492744445801, -0.15519651770591736, 0.298043817281723], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.38677746057510376, -0.07268747687339783, 0.9183968901634216, -2.0637283325195312], [-0.5289385914802551, 0.8339239954948425, -0.15613041818141937, 0.657747745513916], [-0.7555273771286011, -0.5470646023750305, -0.36071643233299255, 0.6335729956626892], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.4196205735206604, -0.3032943904399872, 0.854711651802063, -1.98476243019104], [-0.46468913555145264, 0.8813469409942627, 0.08504810184240341, 0.16693203151226044], [-0.7798283696174622, -0.3623887896537781, -0.5107067823410034, 0.8932580947875977], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.4479317367076874, -0.4249882102012634, 0.7855662107467651, -1.8664392232894897], [-0.34986650943756104, 0.8925995826721191, 0.28390049934387207, -0.3563051223754883], [-0.822891891002655, -0.14847707748413086, -0.5488982200622559, 1.0966320037841797], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.5194958448410034, -0.5719259977340698, 0.6348422765731812, -1.636844515800476], [-0.23106691241264343, 0.8093117475509644, 0.5400209426879883, -0.865784227848053], [-0.8226373195648193, 0.13384762406349182, -0.5525872707366943, 1.1097692251205444], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.6066423654556274, -0.6120054721832275, 0.5067133903503418, -1.3010454177856445], [-0.17284083366394043, 0.723734974861145, 0.6675481796264648, -1.2828333377838135], [-0.7757842540740967, 0.31743302941322327, -0.5451964735984802, 0.9328972697257996], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.6429855227470398, -0.6706785559654236, 0.36766570806503296, -0.928577721118927], [-0.14811745285987854, 0.5797752141952515, 0.8009808659553528, -1.529486894607544], [-0.7510829567909241, 0.46071189641952515, -0.47330567240715027, 0.6386285424232483], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}, {"c2w": [[-0.6582321524620056, -0.7062598466873169, 0.25756949186325073, -0.5988979339599609], [-0.12430240958929062, 0.4390973448753357, 0.8894129991531372, -1.6970545053482056], [-0.7422723770141602, 0.5538261532783508, -0.37782952189445496, 0.30314305424690247], [0.0, 0.0, 0.0, 1.0]], "fov": 94.86107546999666}]; 
+        
+        // Basic Setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+        
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(0, 1, 0);
+        scene.add(dirLight);
+
+        // First Person Controls state
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        // We will maintain pitch and yaw manually
+        let yaw = 0;
+        let pitch = 0;
+
+        // Mouse Events
+        renderer.domElement.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            previousMousePosition = { x: e.offsetX, y: e.offsetY };
+        });
+
+        renderer.domElement.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const deltaMove = {
+                x: e.offsetX - previousMousePosition.x,
+                y: e.offsetY - previousMousePosition.y
+            };
+            
+            // Sensitivity
+            yaw += deltaMove.x * 0.005;
+            pitch += deltaMove.y * 0.005;
+            
+            // Clamp pitch to avoid flipping
+            pitch = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, pitch));
+            
+            updateCameraRotation();
+            
+            previousMousePosition = { x: e.offsetX, y: e.offsetY };
+        });
+
+        renderer.domElement.addEventListener('mouseup', () => { isDragging = false; });
+        renderer.domElement.addEventListener('mouseleave', () => { isDragging = false; });
+
+        function updateCameraRotation() {
+            // Apply yaw and pitch to camera quaternion
+            const euler = new THREE.Euler(pitch, yaw, 0, 'YXZ');
+            camera.quaternion.setFromEuler(euler);
+        }
+
+        // Load PLY
+        const loader = new PLYLoader();
+        loader.load(PLY_URL, function (geometry) {
+            geometry.computeVertexNormals();
+            // If the PLY has vertex colors, use them
+            const material = new THREE.MeshBasicMaterial({ 
+                vertexColors: geometry.hasAttribute('color'),
+                side: THREE.DoubleSide
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            // Flip mesh appropriately if needed, but usually we just handle it in the camera matrix
+            scene.add(mesh);
+            
+            document.getElementById('loading').style.display = 'none';
+            
+            // Jump to camera 0 by default
+            if(CAMERAS.length > 0) {
+                window.jumpToCamera(0);
+            }
+        }, function (xhr) {
+            document.getElementById('loading').innerHTML = `Loading Mesh...<br><span style="font-size: 16px;">${Math.round(xhr.loaded / xhr.total * 100)}%</span>`;
+        }, function (error) {
+            document.getElementById('loading').innerText = "Error loading mesh!";
+            console.error(error);
+        });
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // API to jump to camera
+        window.jumpToCamera = function(index) {
+            if(index < 0 || index >= CAMERAS.length) return;
+            const cam = CAMERAS[index];
+            const c2w = cam.c2w; // 4x4 array
+            
+            // c2w is a row-major 4x4 matrix from Python (MAtCha/OpenCV convention)
+            // OpenCV: Z is forward, Y is down, X is right.
+            // ThreeJS: Z is backward, Y is up, X is right.
+            const m = new THREE.Matrix4();
+            m.set(
+                c2w[0][0], c2w[0][1], c2w[0][2], c2w[0][3],
+                c2w[1][0], c2w[1][1], c2w[1][2], c2w[1][3],
+                c2w[2][0], c2w[2][1], c2w[2][2], c2w[2][3],
+                c2w[3][0], c2w[3][1], c2w[3][2], c2w[3][3]
+            );
+            
+            // We can decompose the matrix to set position and rotation
+            const position = new THREE.Vector3();
+            const quaternion = new THREE.Quaternion();
+            const scale = new THREE.Vector3();
+            m.decompose(position, quaternion, scale);
+            
+            camera.position.copy(position);
+            
+            // OpenCV to ThreeJS coordinate conversion for rotation
+            // OpenCV looks down +Z. ThreeJS looks down -Z.
+            // OpenCV Y is down. ThreeJS Y is up.
+            // We need to rotate 180 degrees around X axis to convert the camera's local coordinate system.
+            const cvToThree = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI);
+            quaternion.multiply(cvToThree);
+            
+            camera.quaternion.copy(quaternion);
+            
+            // Extract yaw and pitch from the new quaternion so drag works correctly from this starting point
+            const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+            euler.setFromQuaternion(camera.quaternion);
+            pitch = euler.x;
+            yaw = euler.y;
+            
+            // Set FOV
+            if (cam.fov) {
+                camera.fov = cam.fov;
+                camera.updateProjectionMatrix();
+            }
+        };
+
+        // Listen for messages from Gradio parent
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'jumpToCamera') {
+                window.jumpToCamera(event.data.index);
+            }
+        });
+    </script>
+</body>
+</html>

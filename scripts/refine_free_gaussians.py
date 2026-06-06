@@ -56,7 +56,7 @@ if __name__ == '__main__':
 
     # Define command
     command = " ".join([
-        "python", "2d-gaussian-splatting/train_with_charts.py",
+        sys.executable, "2d-gaussian-splatting/train_with_charts.py",
         "-s", args.mast3r_scene,
         "-m", args.output_path,
         "--iterations", str(config['iterations']),
