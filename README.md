@@ -18,7 +18,7 @@ Hsing-Yuan Wang &emsp;Bo-Yao Wang &emsp;Ting-Hao Chiu
 Built on top of <a href="https://anttwo.github.io/matcha/">MAtCha Gaussians</a> (CVPR 2025)
 </font>
 
-| <a href="report/main.pdf">📄 Project Report (PDF)</a> | <a href="https://anttwo.github.io/matcha/">MAtCha Webpage</a> | <a href="https://arxiv.org/abs/2412.06767">MAtCha arXiv</a> |
+| <a href="https://anttwo.github.io/matcha/">MAtCha Webpage</a> | <a href="https://arxiv.org/abs/2412.06767">MAtCha arXiv</a> |
 
 <img src="assets/architecture.jpg" alt="StyleGaussian 3D pipeline" width="850"/>
 
